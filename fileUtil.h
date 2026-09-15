@@ -34,7 +34,7 @@ class WriteFile {
         WriteFile(std::string p) : path(p) {}
 
         bool writeBinary(const std::string& data) const {
-            std::ofstream outputFile(path, std::ios::binary | std::ios::trunc);
+            std::ofstream outputFile(path, std::ios::binary | std::ios::out);
             if (!outputFile) return false;
 
             std::copy(
