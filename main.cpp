@@ -1,9 +1,16 @@
 #include <iostream>
 #include "vault.h"
+#include "fileUtil.h"
 
 int main() {
     Vault myVault;
     myVault.loadFromFile();
+
+    ReadFile rf("C:\\Users\\PC\\Documents\\Programming notes\\PythonNotesForProfessionals.pdf");
+    WriteFile wf("C:\\Users\\PC\\Desktop\\PythonNotesForProfessionals.pdf");
+    std::string data = rf.readBinary();
+
+    wf.writeBinary(data);
 
     int choice;
 
