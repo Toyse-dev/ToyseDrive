@@ -29,4 +29,18 @@ class ReadFile {
 
 class WriteFile {
     private:
-}
+        std::string path;
+    public:
+        WriteFile(std::string p) : path(p) {}
+
+        bool writeBinary(const std::string& data) const {
+            std::ofstream outputFile(path, std::ios::binary | std::ios::trunc);
+            if (!outputFile) return false;
+
+            std::copy(
+                data.begin(), data.end(),
+                std::ostreambuf_iterator<char>(outputFile)
+            );
+            return outputFile.good();
+        }
+};
