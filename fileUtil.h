@@ -12,7 +12,7 @@ class ReadFile {
         ReadFile(const std::string& p) : path(p) {}
 
         std::string readBinary() {
-    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
         std::cerr << "Error opening file: " << path << std::endl;
         return "";
@@ -46,13 +46,16 @@ class WriteFile {
         }
 };
 
-class fileRecord {
+class FileRecord {
     private:
         std::string id;
         std::string fileName;
         std::string base64Data;
     public:
-        fileRecord(std::string i, std::string fn, std::string bd) : id(i), fileName(fn), base64Data(bd) {}
+        FileRecord(std::string i, std::string fn, std::string bd) : id(i), fileName(fn), base64Data(bd) {}
+
+        std::string getFile() const { return fileName; }
+        std::string getFileById() const { return id; }
 
         std::string makeString() const {
             return id + "|" + fileName + "|" + base64Data;
@@ -77,5 +80,59 @@ class fileRecord {
             }
 
             return result;
+        }
+};
+
+class FileVault {
+    private:
+        std::vector <FileRecord> files;
+        std::string fileSafe = "drive.txt";
+    public:
+        void add(const FileRecord& fr) {
+            files.push_back(fr);
+        }
+
+        FileRecord* findById(const std::string id) {
+            for (auto &fr : files) {
+                if (fr.getFileById() == id) return &fr;
+            }
+            return nullptr;
+        }
+
+        void saveToFile() {
+            std::ofstream outFile(fileSafe);
+
+            if (outFile.is_open()) {
+                for (const auto& f : files) {
+                    outFile << f.makeString() << "\n";
+                }
+                outFile.close();
+            }
+        }
+
+        void loadFromFile() {
+            std::ifstream inFile(fileSafe);
+
+            if (!inFile.is_open()) return;
+
+            std::string line;
+
+            while (std::getline(inFile, line)){
+                if (line.empty()) continue;
+
+                size_t pos1 = line.find("|");
+                size_t pos2 = line.find("|", pos1 + 1);
+
+                if (pos1 == std::string::npos || pos2 == std::string::npos) {
+                    std::cout << "Skipping corrupted line: " << line << std::endl;
+                    continue;
+                }
+
+                std::string id = line.substr(0, pos1);
+                std::string fileName = line.substr(pos1 + 1, pos2 - pos1 - 1);
+                std::string base64Data = line.substr(pos2 + 1);
+
+                files.emplace_back(id, fileName, base64Data);
+            }
         }
 };
