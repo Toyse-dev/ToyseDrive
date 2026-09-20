@@ -1,19 +1,35 @@
 #include <iostream>
 #include "vault.h"
 #include "fileUtil.h"
+#include "fileVault.h"
 
 int main() {
     Vault myVault;
+    FileVault myDrive;
     myVault.loadFromFile();
+    myDrive.loadFromFile();
 
-    ReadFile rf("C:\\Users\\PC\\Documents\\Programming notes\\PythonNotesForProfessionals.pdf");
-    WriteFile wf("C:\\Users\\PC\\Desktop\\PythonNotesForProfessionals.pdf");
-    std::string data = rf.readBinary();
+    // int choice;
 
-    wf.writeBinary(data);
+    while(true) {
+        std::cout << "=== ToyseDrive Console ===\n";
+        std::cout << "1. Password Vault\n";
+        std::cout << "2. File Drive\n";
+        std::cout << "3. Exit\n";
+        std::cout << "Choice: ";
 
+        int mainChoice;
+        std::cin >> mainChoice;
+
+        if(mainChoice == 1) runPasswordMenu(myVault);
+        else if(mainChoice == 2) runFileMenu(myDrive);
+        else break;
+    }
+}
+
+void runPasswordMenu(Vault &vault) {
     int choice;
-
+    
     do {
         std::cout << "---- MENU LOOP ----" << std::endl;
         std::cout << "1. Add" << std::endl;
@@ -36,8 +52,8 @@ int main() {
                 std::cout << "Enter password: "; std::cin >> p;
 
                 
-                myVault.add(Credential(s, u, p));
-                myVault.saveToFile();
+                vault.add(Credential(s, u, p));
+                vault.saveToFile();
 
                 std::cout << "Credentials Added!\n";
                 std::cout << "-------------------------" << std::endl;
@@ -47,9 +63,9 @@ int main() {
             }
             
             case 2: {
-                myVault.listAll();
+                vault.listAll();
 
-                std::cout << "Vault size: " << myVault.size() << std::endl;
+                std::cout << "Vault size: " << vault.size() << std::endl;
                 std::cout << std::endl;
 
                 break;
@@ -59,7 +75,7 @@ int main() {
                 std::string searchTerm;
 
                 std::cout << "Enter site name to search: "; std::cin >> searchTerm;
-                myVault.searchBySite(searchTerm);
+                vault.searchBySite(searchTerm);
 
                 std::cout << std::endl;
 
@@ -72,7 +88,7 @@ int main() {
             std::cout << "Enter word to delete: ";
             std::cin >> deleteTerm;
 
-            myVault.deleteByUserName(deleteTerm);
+            vault.deleteByUserName(deleteTerm);
                 std::cout << "Credentials deleted" << std::endl;
                 std::cout << std::endl;
 
@@ -81,7 +97,7 @@ int main() {
 
             case 5: {
                 std::cout << "Goodbye!!" << std::endl;
-                return 0;
+                return ;
 
                 break;
             }
@@ -90,8 +106,36 @@ int main() {
                 std::cout << "Invalid choice" << std::endl;
         }
     } while (choice != 5);
+}
 
-    return 0;
+void runFileMenu(FileVault &drive) {
+    int choice;
+
+    do {
+        std::cout << "---- DRIVE MENU LOOP ----" << std::endl;
+        std::cout << "1. Upload" << std::endl;
+        std::cout << "2. List" << std::endl;
+        std::cout << "3. Download by ID" << std::endl;
+        std::cout << "4. Delete by ID" << std::endl;
+        std::cout << "5. Back" << std::endl;
+
+        std::cout << std::endl;
+
+        std::cout << "Choice: ";
+        std::cin >> choice;
+
+        switch (choice) {
+            case 1: {
+
+                break;
+            }
+
+            default:
+                std::cout << "Invalid choice" << std::endl;
+        }
+
+    } while (choice != 5);
+    
 }
 
 // QUESTIONS:
