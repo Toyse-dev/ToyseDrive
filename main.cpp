@@ -2,6 +2,10 @@
 #include "vault.h"
 #include "fileUtil.h"
 #include "fileVault.h"
+// #include "fileRecord.h"
+
+void runPasswordMenu(Vault &vault);
+void runFileMenu(FileVault &drive);
 
 int main() {
     Vault myVault;
@@ -126,12 +130,69 @@ void runFileMenu(FileVault &drive) {
 
         switch (choice) {
             case 1: {
+                std::string inputPath;
+                std::cout << "Enter file path to upload: ";
+                std::cin >> inputPath;
 
+                std::string rawData = FileUtil::readBinary(inputPath);
+                if(rawData.empty()) {
+                    std::cout << "Failed to read\n";
+                    break;
+                }
+
+                std::string newId = FileUtil::generateId(8);
+                std::string fileName = inputPath;
+                size_t pos = inputPath.find_last_of("/\\");
+                if(pos != std::string::npos) fileName = inputPath.substr(pos+1);
+
+                FileRecord record(newId, fileName, rawData);
+                drive.add(record);
+                drive.saveToFile();
+
+                std::cout << "Uploaded! ID: " << newId << " (" << rawData.size() << " bytes)\n";
                 break;
+            }
+            case 2: {
+                drive.listAll();
+                std::cout << "Total: " << drive.size() << std::endl;
+                break;
+            }
+            case 3: {
+                std::string id, outPath;
+                std::cout << "Enter ID: ";
+                std::cin >> id;
+                std::cout << "Save as: ";
+                std::cin >> outPath;
+
+                FileRecord* found = drive.findById(id);
+                if(!found) {
+                    std::cout << "Not found\n";
+                    break;
+                }
+
+                if(FileUtil::writeBinary(outPath, found->getData())) {
+                    std::cout << "Saved to " << outPath << std::endl;
+                } 
+                break;
+            }
+            case 4: {
+                std::string id;
+                std::cout << "Enter ID to delete: ";
+                std::cin >> id;
+                if(drive.deleteById(id)) {
+                    drive.saveToFile();
+                    std::cout << "Deleted\n";
+                } else {
+                    std::cout << "ID not found\n";
+                }
+                break;
+            }
+            case 5: {
+                return;
             }
 
             default:
-                std::cout << "Invalid choice" << std::endl;
+                std::cout << "Invalid choice\n";
         }
 
     } while (choice != 5);
