@@ -1,7 +1,9 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <fileRecord.h>
+#include <vector>
+#include <algorithm>
+#include "fileRecord.h"
 
 class FileVault {
     private:
@@ -55,4 +57,17 @@ class FileVault {
                 files.emplace_back(id, fileName, base64Data);
             }
         }
+
+        bool deleteById(const std::string& id) {
+            size_t before = files.size();
+            files.erase(
+                std::remove_if(files.begin(), files.end(),
+                    [&](const FileRecord& fr){ return fr.getFileById() == id; }),
+                files.end()
+            );
+            return files.size() != before;
+        }
+
+        size_t size() const { return files.size(); }
+        void listAll() { for(auto &fr : files) fr.display(); }
 };
