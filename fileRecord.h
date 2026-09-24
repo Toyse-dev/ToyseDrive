@@ -11,6 +11,7 @@ class FileRecord {
     public:
         FileRecord(std::string i, std::string fn, std::string bd) : id(i), fileName(fn), base64Data(bd) {}
 
+        std::string getData() const { return base64Data; }
         std::string getFile() const { return fileName; }
         std::string getFileById() const { return id; }
 
@@ -24,7 +25,7 @@ class FileRecord {
         }
 
         std::string generateId(int length) const {
-            const std::string chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            std::string chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
             std::random_device randomId;
             std::mt19937 gen(randomId());
