@@ -1,5 +1,9 @@
 #include <iostream>
+#include <fstream>
 #include <string>
+#include <iterator>
+#include <random>
+#include <algorithm>
 
 namespace FileUtil {
     std::string readBinary(const std::string& path) {
@@ -18,13 +22,20 @@ namespace FileUtil {
         return rawBytes;
     }
 
-    bool writeBinary(const std::string& path, const std::string& data) {
+    inline bool writeBinary(const std::string& path, const std::string& data) {
         std::ofstream outputFile(path, std::ios::binary | std::ios::out);
         if (!outputFile) return false;
-
-        std::copy(data.begin(), data.end(), std::ostreambuf_iterator<char>(outputFile));
-
+        outputFile.write(data.data(), data.size());
         return outputFile.good();
-        
+    }
+
+    inline std::string generateId(int length = 8) {
+        const std::string chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dis(0, chars.size() - 1);
+        std::string result;
+        for (int i = 0; i < length; ++i) result += chars[dis(gen)];
+        return result;
     }
 }
