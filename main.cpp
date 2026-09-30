@@ -13,19 +13,6 @@ int main() {
     myVault.loadFromFile();
     myDrive.loadFromFile();
 
-    std::string raw = FileUtil::readBinary("photo.jpg");
-    std::string enc = FileUtil::base64_encode(raw);
-    std::string dec = FileUtil::base64_decode(enc);
-
-    std::cout << "The Raw size: " << raw.size() << std::endl;
-    std::cout << "The encoded size: " << enc.size() << std::endl;
-    std::cout << "The decoded size: " << dec.size() << std::endl;
-    std::cout << "Match: " << (raw == dec ? "Yes, Base64 works!" : "No, bug") << std::endl;
-    std::cout << "Enc safe? " << (enc.find("|") == std::string::npos ? "YES - no |" : "NO") << std::endl;
-
-    FileUtil::writeBinary("photo_copy.jpg", dec);
-std::cout << "Wrote photo_copy.jpg - open it, if it opens, you win" << std::endl;
-
     // int choice;
 
     while(true) {
@@ -145,7 +132,8 @@ void runFileMenu(FileVault &drive) {
             case 1: {
                 std::string inputPath;
                 std::cout << "Enter file path to upload: ";
-                std::cin >> inputPath;
+                std::cin.ignore();
+                std::getline(std::cin, inputPath);
 
                 std::string rawData = FileUtil::readBinary(inputPath);
                 if(rawData.empty()) {
@@ -158,7 +146,8 @@ void runFileMenu(FileVault &drive) {
                 size_t pos = inputPath.find_last_of("/\\");
                 if(pos != std::string::npos) fileName = inputPath.substr(pos+1);
 
-                FileRecord record(newId, fileName, rawData);
+                std::string encoded = FileUtil::base64_encode(rawData);
+                FileRecord record(newId, fileName, encoded);
                 drive.add(record);
                 drive.saveToFile();
 
@@ -175,7 +164,8 @@ void runFileMenu(FileVault &drive) {
                 std::cout << "Enter ID: ";
                 std::cin >> id;
                 std::cout << "Save as: ";
-                std::cin >> outPath;
+                std::cin.ignore();
+                std::getline(std::cin, outPath);
 
                 FileRecord* found = drive.findById(id);
                 if(!found) {
@@ -183,7 +173,8 @@ void runFileMenu(FileVault &drive) {
                     break;
                 }
 
-                if(FileUtil::writeBinary(outPath, found->getData())) {
+                std::string decoded = FileUtil::base64_decode(found->getData());
+                if(FileUtil::writeBinary(outPath, decoded)) {
                     std::cout << "Saved to " << outPath << std::endl;
                 } 
                 break;
