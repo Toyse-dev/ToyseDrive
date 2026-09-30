@@ -13,6 +13,19 @@ int main() {
     myVault.loadFromFile();
     myDrive.loadFromFile();
 
+    std::string raw = FileUtil::readBinary("photo.jpg");
+    std::string enc = FileUtil::base64_encode(raw);
+    std::string dec = FileUtil::base64_decode(enc);
+
+    std::cout << "The Raw size: " << raw.size() << std::endl;
+    std::cout << "The encoded size: " << enc.size() << std::endl;
+    std::cout << "The decoded size: " << dec.size() << std::endl;
+    std::cout << "Match: " << (raw == dec ? "Yes, Base64 works!" : "No, bug") << std::endl;
+    std::cout << "Enc safe? " << (enc.find("|") == std::string::npos ? "YES - no |" : "NO") << std::endl;
+
+    FileUtil::writeBinary("photo_copy.jpg", dec);
+std::cout << "Wrote photo_copy.jpg - open it, if it opens, you win" << std::endl;
+
     // int choice;
 
     while(true) {
