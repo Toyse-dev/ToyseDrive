@@ -1,0 +1,1 @@
+Compile run command: g++ main.cpp tinyfiledialogs.c -o testing.exe -lole32 -lcomdlg32 -lcomctl32 -lshell32
