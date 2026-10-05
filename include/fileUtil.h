@@ -108,4 +108,66 @@ namespace FileUtil {
         if (!file) return "";
         return std::string(file);
     }
+
+    std::string encryptFileData(const std::string& raw, const unsigned char key[crypto_secretbox_KEYBYTES]) {
+        // Allow space for Nonce + Ciphertext (Rawtext size + Mac size)
+        size_t ciphertext_len = raw.size() + crypto_secretbox_MACBYTES;
+        std::vector<unsigned char> output(crypto_secretbox_NONCEBYTES + ciphertext_len);
+
+        // Generate a random nonce directly into the beginning of the output buff
+        unsigned char* nonce_ptr = output.data();
+        randombytes_buf(nonce_ptr, crypto_secretbox_NONCEBYTES);
+
+        // Encrypt the raw text into the space right after the nonce
+        unsigned char* ciphertext_ptr = output.data() + crypto_secretbox_NONCEBYTES;
+
+        int result = crypto_secretbox_easy(
+            ciphertext_ptr, reinterpret_cast<const unsigned char*>(raw.data()),
+            raw.size(),nonce_ptr, key
+        );
+        
+        if (result != 0) throw std::runtime_error("Encryption failed.");
+        
+        return std::string(reinterpret_cast<char*>(output.data()), output.size());
+    }
+    
+    std::string decryptFileData(const std::string& cipherBlob, const unsigned char key[crypto_secretbox_KEYBYTES]) {
+        // Validation: must be at least large enough to hold a Nonce and Mac
+        if (cipherBlob.size() < crypto_secretbox_NONCEBYTES + crypto_secretbox_MACBYTES) {
+            throw std::invalid_argument("Ciphertext is too short or malformed.");
+        }
+
+        // Extract pointers for the nonce and the actual ciphertext
+        const unsigned char* nonce_ptr = reinterpret_cast<const unsigned char*>(cipherBlob.data());
+        const unsigned char* ciphertext_ptr = nonce_ptr + crypto_secretbox_NONCEBYTES;
+        size_t ciphertext_len = cipherBlob.size() - crypto_secretbox_NONCEBYTES;
+
+        // Allocate space for the decrypted plaintext
+        size_t plaintext_len = ciphertext_len - crypto_secretbox_MACBYTES;
+        std::vector<unsigned char> plaintext(plaintext_len);
+
+        // Decrypt and verify
+        int result = crypto_secretbox_open_easy(
+            plaintext.data(), ciphertext_ptr,
+            ciphertext_len, nonce_ptr, key
+        );
+
+        if (result != 0) {
+            throw std::runtime_error("Decryption failed. Data may be corrupted or corrupted key.");
+        }
+
+        return std::string(reinterpret_cast<char*>(plaintext.data()), plaintext.size());
+    }
+
+    void deriveKey(const std::string& password, const unsigned char salt[crypto_pwhash_SALTBYTES], unsigned char outKey[crypto_secretbox_KEYBYTES]) {
+        // Ensure libsodium is initialized before calling cryptographic functions
+        if (sodium_init() < 0) throw std::runtime_error("Failed to initialize libsodium.");
+
+        // Call crypto_pwhash to fill outKey with 32 bytes
+        if (crypto_pwhash(outKey, crypto_secretbox_KEYBYTES, password.c_str(), password.length(),
+            salt, crypto_pwhash_OPSLIMIT_MODERATE, crypto_pwhash_MEMLIMIT_MODERATE,
+            crypto_pwhash_ALG_DEFAULT) != 0) {
+                throw std::runtime_error("Key derivation failed (likely out of memory).");
+        }
+    }
 }
