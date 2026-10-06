@@ -8,7 +8,7 @@
 class FileVault {
     private:
         std::vector <FileRecord> files;
-        std::string fileSafe = "drive.txt";
+        std::string fileSafe = "data/drive.txt";
     public:
         void add(const FileRecord& fr) {
             files.push_back(fr);

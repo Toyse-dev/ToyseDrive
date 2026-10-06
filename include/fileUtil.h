@@ -1,11 +1,13 @@
+#pragma once
 #include <iostream>
-#include "tinyfiledialogs.h"
+#include <sodium.h>
 #include <fstream>
 #include <string>
 #include <iterator>
 #include <random>
 #include <algorithm>
 #include <vector>
+#include "tinyfiledialogs.h"
 
 namespace FileUtil {
     std::string readBinary(const std::string& path) {
@@ -109,6 +111,35 @@ namespace FileUtil {
         return std::string(file);
     }
 
+    // Slat Manager
+    inline void loadOrCreateSalt(const std::string& path, unsigned char salt[crypto_pwhash_SALTBYTES]) {
+        std::ifstream in(path, std::ios::binary);
+        if (in) {
+            in.read(reinterpret_cast<char*>(salt), crypto_pwhash_SALTBYTES);
+            if (in.gcount() == crypto_pwhash_SALTBYTES){
+                return; // loaded existing salt
+            }
+        }
+
+        // Create new salt - first run
+        randombytes_buf(salt, crypto_pwhash_SALTBYTES);
+        std::ofstream out(path, std::ios::binary);
+        if (!out) throw std::runtime_error("Failed to create salt file. Does data/ folder exist?");
+        out.write(reinterpret_cast<char*>(salt), crypto_pwhash_SALTBYTES);
+    }
+
+    void deriveKey(const std::string& password, const unsigned char salt[crypto_pwhash_SALTBYTES], unsigned char outKey[crypto_secretbox_KEYBYTES]) {
+        // Ensure libsodium is initialized before calling cryptographic functions
+        if (sodium_init() < 0) throw std::runtime_error("Failed to initialize libsodium.");
+
+        // Call crypto_pwhash to fill outKey with 32 bytes
+        if (crypto_pwhash(outKey, crypto_secretbox_KEYBYTES, password.c_str(), password.length(),
+            salt, crypto_pwhash_OPSLIMIT_MODERATE, crypto_pwhash_MEMLIMIT_MODERATE,
+            crypto_pwhash_ALG_DEFAULT) != 0) {
+                throw std::runtime_error("Key derivation failed (likely out of memory).");
+        }
+    }
+
     std::string encryptFileData(const std::string& raw, const unsigned char key[crypto_secretbox_KEYBYTES]) {
         // Allow space for Nonce + Ciphertext (Rawtext size + Mac size)
         size_t ciphertext_len = raw.size() + crypto_secretbox_MACBYTES;
@@ -157,17 +188,5 @@ namespace FileUtil {
         }
 
         return std::string(reinterpret_cast<char*>(plaintext.data()), plaintext.size());
-    }
-
-    void deriveKey(const std::string& password, const unsigned char salt[crypto_pwhash_SALTBYTES], unsigned char outKey[crypto_secretbox_KEYBYTES]) {
-        // Ensure libsodium is initialized before calling cryptographic functions
-        if (sodium_init() < 0) throw std::runtime_error("Failed to initialize libsodium.");
-
-        // Call crypto_pwhash to fill outKey with 32 bytes
-        if (crypto_pwhash(outKey, crypto_secretbox_KEYBYTES, password.c_str(), password.length(),
-            salt, crypto_pwhash_OPSLIMIT_MODERATE, crypto_pwhash_MEMLIMIT_MODERATE,
-            crypto_pwhash_ALG_DEFAULT) != 0) {
-                throw std::runtime_error("Key derivation failed (likely out of memory).");
-        }
     }
 }

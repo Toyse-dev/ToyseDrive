@@ -8,7 +8,7 @@
 class Vault {
     private:
         std::vector <Credential> items;
-        std::string fileName = "vault.txt";
+        std::string fileName = "data/vault.txt";
     public:
         void add(const Credential& c) {
             items.push_back(c);
