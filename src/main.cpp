@@ -1,19 +1,40 @@
 #include <iostream>
+#include <limits>
+#include <sodium.h>
 #include "../include/vault.h"
 #include "../include/fileUtil.h"
 #include "../include/fileVault.h"
 
 void runPasswordMenu(Vault &vault);
-void runFileMenu(FileVault &drive);
+void runFileMenu(FileVault &drive, unsigned char key[crypto_secretbox_KEYBYTES]);
 
 int main() {
+    if (sodium_init() < 0) {
+        std::cerr << "libsodium init failed\n";
+        return 1;
+    }
+
+    // Load or creat salt
+    unsigned char salt[crypto_pwhash_SALTBYTES];
+    FileUtil::loadOrCreateSalt("data/salt.bin", salt);
+    std::cout << "Salt ready\n";
+
+    // Master password
+    std::cout << "Enter Master Password: ";
+    std::string masterPass;
+    std::getline(std::cin, masterPass);
+
+    // Derive key
+    unsigned char key[crypto_secretbox_KEYBYTES];
+    FileUtil::deriveKey(masterPass, salt, key);
+    std::cout << "Key derived - ToyseDrive unlocked\n";
+
     Vault myVault;
     FileVault myDrive;
     myVault.loadFromFile();
     myDrive.loadFromFile();
 
     // int choice;
-
     while(true) {
         std::cout << "=== ToyseDrive Console ===\n";
         std::cout << "1. Password Vault\n";
@@ -23,9 +44,10 @@ int main() {
 
         int mainChoice;
         std::cin >> mainChoice;
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
         if(mainChoice == 1) runPasswordMenu(myVault);
-        else if(mainChoice == 2) runFileMenu(myDrive);
+        else if(mainChoice == 2) runFileMenu(myDrive, key);
         else break;
     }
 }
@@ -111,9 +133,8 @@ void runPasswordMenu(Vault &vault) {
     } while (choice != 5);
 }
 
-void runFileMenu(FileVault &drive) {
+void runFileMenu(FileVault &drive, unsigned char key[crypto_secretbox_KEYBYTES]) {
     int choice;
-
     do {
         std::cout << "---- DRIVE MENU LOOP ----" << std::endl;
         std::cout << "1. Upload" << std::endl;
@@ -126,6 +147,7 @@ void runFileMenu(FileVault &drive) {
 
         std::cout << "Choice: ";
         std::cin >> choice;
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
         switch (choice) {
             case 1: {
@@ -141,12 +163,14 @@ void runFileMenu(FileVault &drive) {
                     break;
                 }
 
+                std::string encryptedBlob = FileUtil::encryptFileData(rawData, key);
+                std::string encoded = FileUtil::base64_encode(encryptedBlob);
+
                 std::string newId = FileUtil::generateId(8);
                 std::string fileName = inputPath;
                 size_t pos = inputPath.find_last_of("/\\");
                 if(pos != std::string::npos) fileName = inputPath.substr(pos+1);
 
-                std::string encoded = FileUtil::base64_encode(rawData);
                 FileRecord record(newId, fileName, encoded);
                 drive.add(record);
                 drive.saveToFile();
@@ -162,34 +186,34 @@ void runFileMenu(FileVault &drive) {
             case 3: {
                 std::string id;
                 std::cout << "Enter ID: ";
-                std::cin >> id;
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
+                std::getline(std::cin, id);
                 FileRecord* found = drive.findById(id);
                 if(!found) {
                     std::cout << "Not found\n";
                     break;
                 }
 
-                std::string defaultName = found->getFile();
-                std::string outPath = FileUtil::saveFileDialog(defaultName);
+                std::string outPath = FileUtil::saveFileDialog(found->getFile());
                 if (outPath.empty()) {
                     std::cout << "Cancelled\n";
                     break;
                 }
 
-                std::string decoded = FileUtil::base64_decode(found->getData());
-                if(FileUtil::writeBinary(outPath, decoded)) {
-                    std::cout << "Saved to " << outPath << " (" << decoded.size() << "bytes)\n";
-                } else {
-                    std::cout << "Failed to save\n";
+                try {
+                    std::string decoded = FileUtil::base64_decode(found->getData());
+                    std::string decrypted = FileUtil::decryptFileData(decoded, key);
+                    if (FileUtil::writeBinary(outPath, decrypted)) {
+                        std::cout << "Saved to " << outPath << " (" << decrypted.size() << " bytes)\n";
+                    }
+                } catch (std::exception& e) {
+                    std::cout << "Error: " << e.what() << "\nWrong password or tampered file!\n";
                 }
                 break;
             }
             case 4: {
                 std::string id;
                 std::cout << "Enter ID to delete: ";
-                std::cin >> id;
+                std::getline(std::cin, id);
                 if(drive.deleteById(id)) {
                     drive.saveToFile();
                     std::cout << "Deleted\n";
