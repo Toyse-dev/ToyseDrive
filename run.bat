@@ -1,0 +1,2 @@
+g++ src/main.cpp src/tinyfiledialogs.c -Iinclude -I"lib/libsodium-1.0.20-mingw/libsodium-win64/include" -L"lib/libsodium-1.0.20-mingw/libsodium-win64/lib" -o build/testing.exe -lsodium -lole32 -lcomdlg32 -lcomctl32 -lshell32
+.\build\testing.exe
