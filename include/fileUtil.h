@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <conio.h>
 #include <sodium.h>
 #include <fstream>
 #include <string>
@@ -41,6 +42,29 @@ namespace FileUtil {
         std::string result;
         for (int i = 0; i < length; ++i) result += chars[dis(gen)];
         return result;
+    }
+
+    static std::string readPasswordHidden(const std::string& prompt) {
+        std::cout << prompt;
+        std::string pass;
+        char ch;
+        while ( ((ch = _getch()) != '\r')) { // Enter = \r
+            if (ch == '\b') { // Backspace
+                if (!pass.empty()) {
+                    pass.pop_back();
+                    std::cout << "\b \b"; // Erase character from console
+                }
+            } else if (ch == '\003') { // Ctrl+C
+                std::cout << "\n";
+                exit(0);
+            } else {
+                pass.push_back(ch);
+                std::cout << '*'; // Print asterisk for each character
+            }
+        }
+        std::cout << "\n";
+        return pass;
+        
     }
 
     const std::string base64Alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

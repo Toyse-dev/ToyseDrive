@@ -20,9 +20,7 @@ int main() {
     std::cout << "Salt ready\n";
 
     // Master password
-    std::cout << "Enter Master Password: ";
-    std::string masterPass;
-    std::getline(std::cin, masterPass);
+    std::string masterPass = FileUtil::readPasswordHidden("Enter Master Password: ");
 
     // Derive key
     unsigned char key[crypto_secretbox_KEYBYTES];
@@ -39,8 +37,7 @@ int main() {
         if(t < 2) {
             sodium_memzero(masterPass.data(), masterPass.size()); // wipe old wrong pass
             masterPass.clear();
-            std::cout << "Enter Master Password again: ";
-            std::getline(std::cin, masterPass);
+            masterPass = FileUtil::readPasswordHidden("Enter Master Password again: ");
             FileUtil::deriveKey(masterPass, salt, key);
         }
     }
