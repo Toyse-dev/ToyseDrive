@@ -52,6 +52,9 @@ class Vault {
                 outFile << base64;
                 outFile.close();
             }
+
+            sodium_memzero(data.data(), data.size()); // Securely wipe the plaintext data from memory
+            sodium_memzero(blob.data(), blob.size()); // Securely wipe the encrypted blob from memory
         }
 
         bool loadFromFile(const std::string& path, const unsigned char key[crypto_secretbox_KEYBYTES]) {
@@ -81,8 +84,8 @@ class Vault {
                         std::cout << "Skipping corrupted line: " << line << std::endl;
                         continue;
                     }
-                    return true; // success
                 }
+                return true; // success
             } catch (const std::exception& e) {
                 std::cerr << "Vault decrypt failed - Wrong master password or corrupted vault: " << e.what() << std::endl;
                 return false;

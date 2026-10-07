@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <sodium.h>
 #include "fileRecord.h"
 
 class FileVault {
@@ -21,25 +22,46 @@ class FileVault {
             return nullptr;
         }
 
-        void saveToFile() {
-            std::ofstream outFile(fileSafe);
-
-            if (outFile.is_open()) {
-                for (const auto& f : files) {
-                    outFile << f.makeString() << "\n";
-                }
-                outFile.close();
+        void saveToFile(const std::string& path, const unsigned char key[crypto_secretbox_KEYBYTES]) {
+            std::stringstream ss;
+            for (auto& f : files) {
+                ss << f.getFileById() << "|" << f.getFile() << "|" << f.getData() << "\n";
             }
+            std::string data = ss.str();
+            auto blob = FileUtil::encryptFileData(data, key);
+            auto base64 = FileUtil::base64_encode(blob);
+
+            std::ofstream outFile(path, std::ios::binary);
+            outFile << base64;
+
+            sodium_memzero(data.data(), data.size()); // Securely wipe the plaintext data from memory
+            sodium_memzero(blob.data(), blob.size()); // Securely wipe the encrypted blob from memory
         }
 
-        void loadFromFile() {
-            std::ifstream inFile(fileSafe);
+        bool loadFromFile(const std::string& path, const unsigned char key[crypto_secretbox_KEYBYTES]) {
+            std::ifstream inFile(path, std::ios::binary);
 
-            if (!inFile.is_open()) return;
+            if (!inFile.is_open()) return true; // file doesn't exist yet, treat as empty vault
 
+            std::string base64((std::istreambuf_iterator<char>(inFile)), std::istreambuf_iterator<char>());
+            inFile.close();
+            if (base64.empty()) return true; // empty file, treat as empty vault
+
+            base64.erase(std::remove(base64.begin(), base64.end(), '\n'), base64.end()); // remove newlines
+            base64.erase(std::remove(base64.begin(), base64.end(), '\r'), base64.end()); // remove carriage returns
+
+            std::string data;
+            try {
+                auto blob = FileUtil::base64_decode(base64);
+                data = FileUtil::decryptFileData(blob, key);
+            } catch (const std::exception& e) {
+                return false;
+            }
+
+            files.clear();
+            std::stringstream ss(data);
             std::string line;
-
-            while (std::getline(inFile, line)){
+            while (std::getline(ss, line)){
                 if (line.empty()) continue;
 
                 size_t pos1 = line.find("|");
@@ -56,6 +78,8 @@ class FileVault {
 
                 files.emplace_back(id, fileName, base64Data);
             }
+            sodium_memzero(data.data(), data.size()); // Securely wipe the plaintext data from memory
+            return true; // success
         }
 
         bool deleteById(const std::string& id) {

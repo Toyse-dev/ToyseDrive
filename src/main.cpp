@@ -30,23 +30,33 @@ int main() {
     std::cout << "Key derived - ToyseDrive unlocked\n";
 
     Vault myVault;
+    FileVault myDrive;
+    // Try vault - 3 attempts
     bool vaultOk = false;
     for (int t = 0; t < 3; ++t) {
         if(myVault.loadFromFile("data/vault.txt", key)) { vaultOk = true; break; }
         std::cerr << "Wrong password, tries left: " << 2-t << "\n";
         if(t < 2) {
+            sodium_memzero(masterPass.data(), masterPass.size()); // wipe old wrong pass
+            masterPass.clear();
             std::cout << "Enter Master Password again: ";
             std::getline(std::cin, masterPass);
             FileUtil::deriveKey(masterPass, salt, key);
         }
     }
     if (!vaultOk) {
+        sodium_memzero(key, sizeof key);
+        sodium_memzero(salt, sizeof salt);
+        sodium_memzero(masterPass.data(), masterPass.size());
+        std::cerr << "Too many failed attempts. Exiting to protect data.\n";
         return 1;
     }
 
-    FileVault myDrive;
-    myVault.loadFromFile("data/vault.txt", key);
-    myDrive.loadFromFile();
+    // Load drive with same key - also returns bool
+    if (!myDrive.loadFromFile("data/drive.txt", key)) {
+        std::cerr << "Drive decrypt failed - file corrupted or wrong key\n";
+        return 1;
+    }
 
     // int choice;
     while(true) {
@@ -64,6 +74,15 @@ int main() {
         else if(mainChoice == 2) runFileMenu(myDrive, key);
         else break;
     }
+
+    // Secure wipe key from memory
+    sodium_memzero(key, sizeof key);
+    sodium_memzero(salt, sizeof salt);
+    sodium_memzero(masterPass.data(), masterPass.size());
+    masterPass.clear();
+
+    std::cout << "ToyseDrive locked, memory wiped.\n";
+    return 0; 
 }
 
 void runPasswordMenu(Vault &vault, unsigned char key[32]) {
@@ -187,7 +206,10 @@ void runFileMenu(FileVault &drive, unsigned char key[crypto_secretbox_KEYBYTES])
 
                 FileRecord record(newId, fileName, encoded);
                 drive.add(record);
-                drive.saveToFile();
+                drive.saveToFile("data/drive.txt", key);
+                sodium_memzero(rawData.data(), rawData.size());
+                sodium_memzero(encryptedBlob.data(), encryptedBlob.size());
+                sodium_memzero(encoded.data(), encoded.size());
 
                 std::cout << "Uploaded! ID: " << newId << " (" << rawData.size() << " bytes)\n";
                 break;
@@ -218,6 +240,8 @@ void runFileMenu(FileVault &drive, unsigned char key[crypto_secretbox_KEYBYTES])
                     std::string decrypted = FileUtil::decryptFileData(decoded, key);
                     if (FileUtil::writeBinary(outPath, decrypted)) {
                         std::cout << "Saved to " << outPath << " (" << decrypted.size() << " bytes)\n";
+                        sodium_memzero(decoded.data(), decoded.size());
+                        sodium_memzero(decrypted.data(), decrypted.size());
                     }
                 } catch (std::exception& e) {
                     std::cout << "Error: " << e.what() << "\nWrong password or tampered file!\n";
@@ -229,7 +253,7 @@ void runFileMenu(FileVault &drive, unsigned char key[crypto_secretbox_KEYBYTES])
                 std::cout << "Enter ID to delete: ";
                 std::getline(std::cin, id);
                 if(drive.deleteById(id)) {
-                    drive.saveToFile();
+                    drive.saveToFile("data/drive.txt", key);
                     std::cout << "Deleted\n";
                 } else {
                     std::cout << "ID not found\n";
@@ -244,8 +268,7 @@ void runFileMenu(FileVault &drive, unsigned char key[crypto_secretbox_KEYBYTES])
                 std::cout << "Invalid choice\n";
         }
 
-    } while (choice != 5);
-    
+    } while (choice != 5);   
 }
 
 // QUESTIONS:
