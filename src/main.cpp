@@ -5,7 +5,7 @@
 #include "../include/fileUtil.h"
 #include "../include/fileVault.h"
 
-void runPasswordMenu(Vault &vault);
+void runPasswordMenu(Vault &vault, unsigned char key[32]);
 void runFileMenu(FileVault &drive, unsigned char key[crypto_secretbox_KEYBYTES]);
 
 int main() {
@@ -30,8 +30,22 @@ int main() {
     std::cout << "Key derived - ToyseDrive unlocked\n";
 
     Vault myVault;
+    bool vaultOk = false;
+    for (int t = 0; t < 3; ++t) {
+        if(myVault.loadFromFile("data/vault.txt", key)) { vaultOk = true; break; }
+        std::cerr << "Wrong password, tries left: " << 2-t << "\n";
+        if(t < 2) {
+            std::cout << "Enter Master Password again: ";
+            std::getline(std::cin, masterPass);
+            FileUtil::deriveKey(masterPass, salt, key);
+        }
+    }
+    if (!vaultOk) {
+        return 1;
+    }
+
     FileVault myDrive;
-    myVault.loadFromFile();
+    myVault.loadFromFile("data/vault.txt", key);
     myDrive.loadFromFile();
 
     // int choice;
@@ -46,13 +60,13 @@ int main() {
         std::cin >> mainChoice;
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-        if(mainChoice == 1) runPasswordMenu(myVault);
+        if(mainChoice == 1) runPasswordMenu(myVault, key);
         else if(mainChoice == 2) runFileMenu(myDrive, key);
         else break;
     }
 }
 
-void runPasswordMenu(Vault &vault) {
+void runPasswordMenu(Vault &vault, unsigned char key[32]) {
     int choice;
     
     do {
@@ -78,7 +92,7 @@ void runPasswordMenu(Vault &vault) {
 
                 
                 vault.add(Credential(s, u, p));
-                vault.saveToFile();
+                vault.saveToFile("data/vault.txt", key);
 
                 std::cout << "Credentials Added!\n";
                 std::cout << "-------------------------" << std::endl;
@@ -113,7 +127,7 @@ void runPasswordMenu(Vault &vault) {
             std::cout << "Enter word to delete: ";
             std::cin >> deleteTerm;
 
-            vault.deleteByUserName(deleteTerm);
+            vault.deleteByUserName(deleteTerm, "data/vault.txt", key);
                 std::cout << "Credentials deleted" << std::endl;
                 std::cout << std::endl;
 

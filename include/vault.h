@@ -3,7 +3,9 @@
 #include <vector>
 #include <fstream>
 #include <algorithm>
+#include <sstream>
 #include "credential.h"
+#include "fileUtil.h"
 
 class Vault {
     private:
@@ -30,42 +32,61 @@ class Vault {
             }
         }
 
-        void saveToFile() {
-            std::ofstream outFile(fileName);
+        void saveToFile(const std::string& path, const unsigned char key[crypto_secretbox_KEYBYTES]) {
+            std::stringstream ss;
 
+            // Loop through credentials vector and build one bid string
+            for (const auto& item : items) {
+                ss << item.getSite() << "|" << item.getUser() << "|" << item.getPass() << "\n";
+            }
+
+            std::string data = ss.str();
+
+            // Encrypt and Base64 encode the combined string
+            auto blob = FileUtil::encryptFileData(data, key);
+            auto base64 = FileUtil::base64_encode(blob);
+
+            // Write only the base64 string to the file
+            std::ofstream outFile(path, std::ios::binary);
             if (outFile.is_open()) {
-                for (const auto& item : items) {
-                    outFile << item.makeString() << '\n';
-                }
+                outFile << base64;
                 outFile.close();
             }
         }
 
-        void loadFromFile() {
-            std::ifstream inFile(fileName);
+        bool loadFromFile(const std::string& path, const unsigned char key[crypto_secretbox_KEYBYTES]) {
+            // Open the file in binary mode and read its contents
+            std::ifstream inFile(path, std::ios::binary);
+            if (!inFile.is_open()) return true;
 
-            if (!inFile.is_open()) return;
-
-            std::string line;
-
-            while (std::getline(inFile, line)) {
-                if (line.empty()) continue;
-                
-                size_t pos1 = line.find("|");
-                size_t pos2 = line.find("|", pos1 + 1);
-
-                if (pos1 == std::string::npos || pos2 == std::string::npos) {
-                    std::cout << "Skipping corrupted line: " << line << std::endl;
-                    continue;
-                }
-
-                std::string site = line.substr(0, pos1);
-                std::string username = line.substr(pos1 + 1, pos2 - pos1 - 1);
-                std::string password = line.substr(pos2 + 1);
-
-                items.push_back(Credential(site, username, password));
-            }
+            // Read whole file as Base64 string
+            std::string base64((std::istreambuf_iterator<char>(inFile)), std::istreambuf_iterator<char>());
             inFile.close();
+            if (base64.empty()) return true;
+
+            base64.erase(std::remove(base64.begin(), base64.end(), '\n'), base64.end()); // clean newlines
+            base64.erase(std::remove(base64.begin(), base64.end(), '\r'), base64.end()); // clean carriage returns
+
+            // Decode + Decrypt
+            try {
+                auto blob = FileUtil::base64_decode(base64);
+                std::string data = FileUtil::decryptFileData(blob, key);
+                items.clear();
+                std::stringstream dataStream(data);
+                std::string line;
+                while (std::getline(dataStream, line)) {
+                    if (line.empty()) continue;
+                    size_t p1 = line.find("|"); size_t p2 = line.find("|", p1 + 1);
+                    if (p1 == std::string::npos || p2 == std::string::npos) {
+                        std::cout << "Skipping corrupted line: " << line << std::endl;
+                        continue;
+                    }
+                    return true; // success
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "Vault decrypt failed - Wrong master password or corrupted vault: " << e.what() << std::endl;
+                return false;
+            }
         }
 
         void searchBySite(const std::string query) {
@@ -83,12 +104,12 @@ class Vault {
             }
         }
 
-        void deleteByUserName(const std::string deleteUser) {
+        void deleteByUserName(const std::string deleteUser, const std::string& path, const unsigned char key[crypto_secretbox_KEYBYTES]) {
             items.erase(
                 std::remove_if(items.begin(), items.end(), [&](const Credential& c) {
                     return c.getUser() == deleteUser;;
                 }), items.end()
             );
-            saveToFile();
+            saveToFile(path, key);
         }
 };
